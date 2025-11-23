@@ -79,6 +79,7 @@ extern FaceRecognition112V1S8 recognizer;
 // SD / metadata persistence
 static bool sd_ready = false;
 static std::map<std::string, std::string> vinculoMap;
+static std::map<int, std::string> idNameMap;
 static const char *FACE_DB_PATH = "/faces.db";
 
 typedef struct {
@@ -127,18 +128,19 @@ void faces_load_db() {
         if (entry.ctrl[0] != 0x14 || entry.ctrl[1] != 0x08) continue;
         dl::Tensor<float> emb;
         emb.set_element(entry.embedding).set_shape({512});
-        recognizer.enroll_id(emb, entry.name, false);
+        int newId = recognizer.enroll_id(emb, entry.name, false);
+        if (newId >= 0) idNameMap[newId] = entry.name;
         count++;
     }
     file.close();
     log_i("Loaded %d faces from SD", count);
 }
 
-static void faces_save_db_entry(const std::string &name) {
+static void faces_save_db_entry(int id, const std::string &name) {
     if (!sd_ready) return;
     dl::Tensor<float> &emb = recognizer.get_face_emb(-1);
     face_db_entry_t entry;
-    entry.id = recognizer.get_enrolled_id_num() - 1;
+    entry.id = id;
     memset(entry.name, 0, sizeof(entry.name));
     strncpy(entry.name, name.c_str(), 16);
     memcpy(entry.embedding, emb.element, sizeof(entry.embedding));
@@ -162,6 +164,19 @@ static void faces_save_metadata(const std::string &name, const std::string &vinc
         f.print(vinc.c_str());
         f.close();
     }
+}
+
+const char* faces_get_name(int id) {
+    auto it = idNameMap.find(id);
+    if (it == idNameMap.end()) return "";
+    return it->second.c_str();
+}
+
+const char* faces_get_vinc(const char *name) {
+    if (!name) return "";
+    auto it = vinculoMap.find(name);
+    if (it == vinculoMap.end()) return "";
+    return it->second.c_str();
 }
 #endif // CONFIG_ESP_FACE_RECOGNITION_ENABLED
 
@@ -406,8 +421,9 @@ static int enroll_from_jpeg(const std::string &name, const std::string &vinc, co
 
     int newId = recognizer.enroll_id(tensor, landmarks, name, false);
     if (newId >= 0) {
-        recognizer.write_ids_to_flash(); // keep flash in sync (optional)
-        faces_save_db_entry(name);
+        recognizer.write_ids_to_flash();
+        idNameMap[newId] = name;
+        faces_save_db_entry(newId, name);
         faces_save_metadata(name, vinc);
         vinculoMap[name] = vinc;
         log_i("Enrolled %s as id %d", name.c_str(), newId);
@@ -989,6 +1005,8 @@ static esp_err_t cadastrar_handler(httpd_req_t *req)
     if (id >= 0) {
         detection_enabled = 1;
         recognition_enabled = 1;
+        idNameMap[id] = nomeStr;
+        vinculoMap[nomeStr] = vincStr;
         httpd_resp_set_type(req, "text/plain");
         httpd_resp_sendstr(req, "Enrolled OK");
     } else {

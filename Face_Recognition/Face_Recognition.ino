@@ -28,6 +28,8 @@ void faces_set_sd_ready(bool ok);
 void faces_load_db();
 void faces_load_metadata();
 int faces_periodic_recognize();
+const char* faces_get_name(int id);
+const char* faces_get_vinc(const char *name);
 
 void setup() {
   Serial.begin(115200);
@@ -129,7 +131,11 @@ void loop() {
     lastRecog = millis();
     int id = faces_periodic_recognize();
     if (id >= 0) {
-      Serial.printf("Found ID: %d\n", id);
+        const char *name = faces_get_name(id);
+        const char *vinc = faces_get_vinc(name);
+        if (!name || !name[0]) name = "Unknown";
+        if (!vinc || !vinc[0]) vinc = "Unknown";
+        Serial.printf("Found: %s - %s (ID %d)\n", name, vinc, id);
     }
   }
 
