@@ -44,10 +44,8 @@ def enviar():
     if img is None:
         return messagebox.showerror("Erro", "Erro ao abrir a imagem!")
 
-    # Reduz tamanho para envio (opcional)
-    h, w = img.shape[:2]
-    esc = IMG_RED / max(h, w)
-    img_red = cv2.resize(img, (int(w * esc), int(h * esc)))
+    # Resize to 240x240 exactly for ESP32 face detection
+    img_red = cv2.resize(img, (240, 240))
 
     # Codifica em Base64
     _, buf = cv2.imencode(".jpg", img_red, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
