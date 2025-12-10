@@ -178,6 +178,16 @@ const char* faces_get_vinc(const char *name) {
     if (it == vinculoMap.end()) return "";
     return it->second.c_str();
 }
+#else
+void faces_set_sd_ready(bool) {}
+void faces_load_metadata() {}
+void faces_load_db() {}
+const char* faces_get_name(int) {
+    return "";
+}
+const char* faces_get_vinc(const char *) {
+    return "";
+}
 #endif // CONFIG_ESP_FACE_RECOGNITION_ENABLED
 
 // Enable LED FLASH setting
@@ -389,11 +399,20 @@ static int run_face_recognition(fb_data_t *fb, std::list<dl::detect::result_t> *
 }
 
 // Enroll from a JPEG buffer (240x240) coming from HTTP
-static int enroll_from_jpeg(const std::string &name, const std::string &vinc, const uint8_t *jpg, size_t jpg_len)
+static int enroll_from_jpeg(const std::string &name, const std::string &vinc,
+                            const uint8_t *jpg, size_t jpg_len, std::string &err)
 {
+    err.clear();
+    if (!jpg || !jpg_len) {
+        err = "Imagem recebida está vazia.";
+        log_w("%s", err.c_str());
+        return -1;
+    }
+
     std::vector<uint8_t> rgb(240 * 240 * 3);
     if (!fmt2rgb888(jpg, jpg_len, PIXFORMAT_JPEG, rgb.data())) {
-        log_e("fmt2rgb888 failed on uploaded image");
+        err = "Falha ao converter JPEG para RGB (fmt2rgb888).";
+        log_e("%s", err.c_str());
         return -1;
     }
 
@@ -404,7 +423,8 @@ static int enroll_from_jpeg(const std::string &name, const std::string &vinc, co
     std::list<dl::detect::result_t> &results = s2.infer((uint8_t *)rgb.data(), {(int)240, (int)240, 3}, candidates);
 
     if (results.empty()) {
-        log_w("No face detected in uploaded image");
+        err = "Nenhum rosto detectado na imagem enviada.";
+        log_w("%s", err.c_str());
         return -1;
     }
 
@@ -427,10 +447,35 @@ static int enroll_from_jpeg(const std::string &name, const std::string &vinc, co
         faces_save_metadata(name, vinc);
         vinculoMap[name] = vinc;
         log_i("Enrolled %s as id %d", name.c_str(), newId);
+    } else {
+        err = "Reconhecedor não conseguiu registrar o rosto (similaridade baixa?).";
+        log_w("%s", err.c_str());
     }
     return newId;
 }
 #endif
+#endif
+
+#if CONFIG_ESP_FACE_DETECT_ENABLED
+// Decode a Base64 JPEG received over HTTP (returns true on success)
+static bool decode_base64_jpeg(const char *b64, std::vector<uint8_t> &out)
+{
+    if (!b64) return false;
+    size_t b64_len = strlen(b64);
+    if (!b64_len) return false;
+    size_t max_len = (b64_len / 4 + 1) * 3;
+    out.resize(max_len);
+    size_t decoded_len = 0;
+    int ret = mbedtls_base64_decode(out.data(), out.size(), &decoded_len,
+                                    (const unsigned char *)b64, b64_len);
+    if (ret != 0 || decoded_len == 0) {
+        log_w("Base64 decode failed (%d)", ret);
+        out.clear();
+        return false;
+    }
+    out.resize(decoded_len);
+    return true;
+}
 #endif
 
 #if CONFIG_LED_ILLUMINATOR_ENABLED
@@ -973,33 +1018,56 @@ static esp_err_t cadastrar_handler(httpd_req_t *req)
 
     const char *nome = doc["nome"];
     const char *vinc = doc["vinculo"];
+    const char *img_b64 = doc["imagem"];
     if (!nome) {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing name");
     }
     std::string nomeStr(nome);
     std::string vincStr = vinc ? std::string(vinc) : std::string("");
 
-    camera_fb_t *fb = esp_camera_fb_get();
-    if (!fb) {
-        return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Camera capture failed");
+    std::vector<uint8_t> uploaded_jpg;
+    bool has_upload = false;
+    if (img_b64 && img_b64[0]) {
+        has_upload = decode_base64_jpeg(img_b64, uploaded_jpg);
+        if (!has_upload) {
+            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid Base64 image");
+        }
+        log_i("Using uploaded image (%u bytes) for enrollment", (unsigned)uploaded_jpg.size());
     }
 
-    const uint8_t *jpg_ptr = fb->buf;
-    size_t jpg_len = fb->len;
+    const uint8_t *jpg_ptr = NULL;
+    size_t jpg_len = 0;
     uint8_t *converted = NULL;
     size_t converted_len = 0;
+    camera_fb_t *fb = NULL;
 
-    if (fb->format != PIXFORMAT_JPEG) {
-        if (!frame2jpg(fb, 80, &converted, &converted_len)) {
-            esp_camera_fb_return(fb);
-            return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "frame2jpg failed");
+    if (has_upload) {
+        jpg_ptr = uploaded_jpg.data();
+        jpg_len = uploaded_jpg.size();
+    } else {
+        log_i("No upload provided, capturing live frame for enrollment");
+        fb = esp_camera_fb_get();
+        if (!fb) {
+            return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Camera capture failed");
         }
-        jpg_ptr = converted;
-        jpg_len = converted_len;
+        jpg_ptr = fb->buf;
+        jpg_len = fb->len;
+
+        if (fb->format != PIXFORMAT_JPEG) {
+            if (!frame2jpg(fb, 80, &converted, &converted_len)) {
+                esp_camera_fb_return(fb);
+                return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "frame2jpg failed");
+            }
+            jpg_ptr = converted;
+            jpg_len = converted_len;
+        }
     }
 
-    int id = enroll_from_jpeg(nomeStr, vincStr, jpg_ptr, jpg_len);
-    esp_camera_fb_return(fb);
+    std::string enroll_err;
+    int id = enroll_from_jpeg(nomeStr, vincStr, jpg_ptr, jpg_len, enroll_err);
+    if (fb) {
+        esp_camera_fb_return(fb);
+    }
     if (converted) free(converted);
 
     if (id >= 0) {
@@ -1010,7 +1078,8 @@ static esp_err_t cadastrar_handler(httpd_req_t *req)
         httpd_resp_set_type(req, "text/plain");
         httpd_resp_sendstr(req, "Enrolled OK");
     } else {
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Enroll failed");
+        const char *msg = enroll_err.empty() ? "Enroll failed" : enroll_err.c_str();
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, msg);
     }
     return ESP_OK;
 }
@@ -1694,5 +1763,10 @@ int faces_periodic_recognize()
 
     esp_camera_fb_return(fb);
     return face_id;
+}
+#else
+int faces_periodic_recognize()
+{
+    return -1;
 }
 #endif

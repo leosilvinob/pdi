@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 
 import cv2, base64, os, requests
 import tkinter as tk
@@ -44,8 +44,15 @@ def enviar():
     if img is None:
         return messagebox.showerror("Erro", "Erro ao abrir a imagem!")
 
+    # Recorta para quadrado central antes de redimensionar para evitar distorções
+    h, w = img.shape[:2]
+    side = min(h, w)
+    y0 = (h - side) // 2
+    x0 = (w - side) // 2
+    img_cropped = img[y0:y0 + side, x0:x0 + side]
+
     # Resize to 240x240 exactly for ESP32 face detection
-    img_red = cv2.resize(img, (240, 240))
+    img_red = cv2.resize(img_cropped, (IMG_RED, IMG_RED))
 
     # Codifica em Base64
     _, buf = cv2.imencode(".jpg", img_red, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
@@ -65,7 +72,12 @@ def enviar():
         if res.status_code == 200:
             messagebox.showinfo("Sucesso", "Cadastro enviado com sucesso!")
         else:
-            messagebox.showerror("Erro", f"Falha ao enviar. Status code: {res.status_code}")
+            detalhe = (res.text or "").strip()
+            if detalhe:
+                message = f"Falha ao enviar (HTTP {res.status_code}).\n{detalhe}"
+            else:
+                message = f"Falha ao enviar. Status code: {res.status_code}"
+            messagebox.showerror("Erro", message)
 
     except Exception as e:
         messagebox.showerror("Erro", f"Não foi possível enviar para o ESP32.\n{e}")
