@@ -1,22 +1,22 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import cv2, base64, os, requests
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-# Configuração
-IMG_RED = 240  # Tamanho máximo da imagem enviada
+# Configuracao
+IMG_RED = 240  # Tamanho maximo da imagem enviada
 root = tk.Tk()
-root.title("Cadastro Facial – Offline")
+root.title("Cadastro Facial - Offline")
 
 # Labels + campos
 tk.Label(root, text="Nome da pessoa:").pack()
 nome = tk.Entry(root, width=30); nome.pack(pady=5)
 
-tk.Label(root, text="Vínculo (amigo, cuidador etc):").pack()
+tk.Label(root, text="Vinculo (amigo, cuidador etc):").pack()
 vinculo = tk.Entry(root, width=30); vinculo.pack(pady=5)
 
-# Seleção de um único arquivo
+# Selecao de um unico arquivo
 tk.Label(root, text="Selecionar foto:").pack()
 foto = tk.Entry(root, width=40); foto.pack(pady=5)
 tk.Button(
@@ -44,7 +44,7 @@ def enviar():
     if img is None:
         return messagebox.showerror("Erro", "Erro ao abrir a imagem!")
 
-    # Recorta para quadrado central antes de redimensionar para evitar distorções
+    # Recorta para quadrado central antes de redimensionar para evitar distorcoes
     h, w = img.shape[:2]
     side = min(h, w)
     y0 = (h - side) // 2
@@ -80,7 +80,7 @@ def enviar():
             messagebox.showerror("Erro", message)
 
     except Exception as e:
-        messagebox.showerror("Erro", f"Não foi possível enviar para o ESP32.\n{e}")
+        messagebox.showerror("Erro", f"Nao foi possivel enviar para o ESP32.\n{e}")
 
 
 tk.Button(root, text="Cadastrar e Enviar", command=enviar, bg="blue", fg="white").pack(pady=10)

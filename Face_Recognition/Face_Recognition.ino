@@ -30,6 +30,8 @@ void faces_load_metadata();
 int faces_periodic_recognize();
 const char* faces_get_name(int id);
 const char* faces_get_vinc(const char *name);
+void faces_publish_result(int id, const char *name, const char *vinc);
+void faces_set_status(const char *status);
 
 void setup() {
   Serial.begin(115200);
@@ -136,6 +138,9 @@ void loop() {
         if (!name || !name[0]) name = "Unknown";
         if (!vinc || !vinc[0]) vinc = "Unknown";
         Serial.printf("Found: %s - %s (ID %d)\n", name, vinc, id);
+        faces_publish_result(id, name, vinc);
+    } else {
+        faces_set_status("Nenhum rosto reconhecido.");
     }
   }
 

@@ -1,0 +1,293 @@
+<xml xmlns="https://developers.google.com/blockly/xml">
+<block type="component_event" id="btnClick" x="-4600" y="-1100">
+  <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Button" is_generic="false" instance_name="ButtonConectar" event_name="Click"></mutation>
+  <field name="COMPONENT_SELECTOR">ButtonConectar</field>
+  <statement name="DO">
+    <block type="lexical_variable_set" id="setURL">
+      <field name="VAR">global servidorURL</field>
+      <value name="VALUE">
+        <block type="text_trim" id="trimInput">
+          <value name="TEXT">
+            <block type="component_set_get" id="readIP">
+              <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="TextBox" set_or_get="get" property_name="Text" is_generic="false" instance_name="TextBoxServidor"></mutation>
+              <field name="COMPONENT_SELECTOR">TextBoxServidor</field>
+              <field name="PROP">Text</field>
+            </block>
+          </value>
+        </block>
+      </value>
+      <next>
+        <block type="controls_if" id="ifValidURL">
+          <value name="IF0">
+            <block type="math_compare" id="cmpURL">
+              <field name="OP">GT</field>
+              <value name="A">
+                <block type="text_length" id="lenURL">
+                  <value name="TEXT">
+                    <block type="lexical_variable_get" id="getURL">
+                      <field name="VAR">global servidorURL</field>
+                    </block>
+                  </value>
+                </block>
+              </value>
+              <value name="B">
+                <block type="math_number" id="zeroURL"><field name="NUM">0</field></block>
+              </value>
+            </block>
+          </value>
+          <statement name="DO0">
+            <block type="component_set_get" id="setStatusConnect">
+              <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="LabelStatus"></mutation>
+              <field name="COMPONENT_SELECTOR">LabelStatus</field>
+              <field name="PROP">Text</field>
+              <value name="VALUE">
+                <block type="text_join" id="statusJoin">
+                  <mutation xmlns="http://www.w3.org/1999/xhtml" items="2"></mutation>
+                  <value name="ADD0"><block type="text" id="statusText"><field name="TEXT">Monitorando </field></block></value>
+                  <value name="ADD1"><block type="lexical_variable_get" id="urlDisplay"><field name="VAR">global servidorURL</field></block></value>
+                </block>
+              </value>
+              <next>
+                <block type="lexical_variable_set" id="resetCounter">
+                  <field name="VAR">global ultimoContador</field>
+                  <value name="VALUE"><block type="text" id="setCounterZero"><field name="TEXT"></field></block></value>
+                  <next>
+                    <block type="lexical_variable_set" id="setReqFlagFalse">
+                      <field name="VAR">global emRequisicao</field>
+                      <value name="VALUE"><block type="logic_boolean" id="boolFalse1"><field name="BOOL">FALSE</field></block></value>
+                      <next>
+                        <block type="component_set_get" id="enableClock">
+                          <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Clock" set_or_get="set" property_name="TimerEnabled" is_generic="false" instance_name="Clock1"></mutation>
+                          <field name="COMPONENT_SELECTOR">Clock1</field>
+                          <field name="PROP">TimerEnabled</field>
+                          <value name="VALUE"><block type="logic_boolean" id="boolTrue1"><field name="BOOL">TRUE</field></block></value>
+                        </block>
+                      </next>
+                    </block>
+                  </next>
+                </block>
+              </next>
+            </block>
+          </statement>
+          <statement name="ELSE">
+            <block type="component_method" id="alertURL">
+              <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Notifier" method_name="ShowAlert" is_generic="false" instance_name="Notifier1"></mutation>
+              <field name="COMPONENT_SELECTOR">Notifier1</field>
+              <value name="ARG0"><block type="text" id="alertMsg"><field name="TEXT">Informe o endere?o do ESP32.</field></block></value>
+            </block>
+          </statement>
+        </block>
+      </next>
+    </block>
+  </statement>
+</block>
+
+<block type="component_event" id="clockTimer" x="-4610" y="-750">
+  <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Clock" is_generic="false" instance_name="Clock1" event_name="Timer"></mutation>
+  <field name="COMPONENT_SELECTOR">Clock1</field>
+  <statement name="DO">
+    <block type="controls_if" id="ifCanRequest">
+      <value name="IF0">
+        <block type="logic_operation" id="urlAndIdle">
+          <mutation xmlns="http://www.w3.org/1999/xhtml" items="2"></mutation>
+          <field name="OP">AND</field>
+          <value name="A">
+            <block type="math_compare" id="checkUrlLen">
+              <field name="OP">GT</field>
+              <value name="A">
+                <block type="text_length" id="lenGlobalUrl">
+                  <value name="TEXT">
+                    <block type="lexical_variable_get" id="globalUrl"><field name="VAR">global servidorURL</field></block>
+                  </value>
+                </block>
+              </value>
+              <value name="B"><block type="math_number" id="zeroLen"><field name="NUM">0</field></block></value>
+            </block>
+          </value>
+          <value name="B">
+            <block type="logic_negate" id="notBusy">
+              <value name="BOOL"><block type="lexical_variable_get" id="getBusy"><field name="VAR">global emRequisicao</field></block></value>
+            </block>
+          </value>
+        </block>
+      </value>
+      <statement name="DO0">
+        <block type="lexical_variable_set" id="setBusyTrue">
+          <field name="VAR">global emRequisicao</field>
+          <value name="VALUE"><block type="logic_boolean" id="boolTrue2"><field name="BOOL">TRUE</field></block></value>
+          <next>
+            <block type="component_set_get" id="assignUrl">
+              <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" set_or_get="set" property_name="Url" is_generic="false" instance_name="Web1"></mutation>
+              <field name="COMPONENT_SELECTOR">Web1</field>
+              <field name="PROP">Url</field>
+              <value name="VALUE"><block type="lexical_variable_get" id="useUrl"><field name="VAR">global servidorURL</field></block></value>
+              <next>
+                <block type="component_method" id="callGet">
+                  <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" method_name="Get" is_generic="false" instance_name="Web1"></mutation>
+                  <field name="COMPONENT_SELECTOR">Web1</field>
+                </block>
+              </next>
+            </block>
+          </next>
+        </block>
+      </statement>
+    </block>
+  </statement>
+</block>
+
+<block type="component_event" id="webGot" x="-4608" y="-420">
+  <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" is_generic="false" instance_name="Web1" event_name="GotText">
+    <arg name="url"></arg>
+    <arg name="responseCode"></arg>
+    <arg name="responseType"></arg>
+    <arg name="responseContent"></arg>
+  </mutation>
+  <field name="COMPONENT_SELECTOR">Web1</field>
+  <statement name="DO">
+    <block type="lexical_variable_set" id="setBusyFalse">
+      <field name="VAR">global emRequisicao</field>
+      <value name="VALUE"><block type="logic_boolean" id="boolFalse2"><field name="BOOL">FALSE</field></block></value>
+      <next>
+        <block type="controls_if" id="ifHttpOK">
+          <value name="IF0">
+            <block type="math_compare" id="cmp200">
+              <field name="OP">EQ</field>
+              <value name="A"><block type="lexical_variable_get" id="respCode"><field name="VAR">responseCode</field></block></value>
+              <value name="B"><block type="math_number" id="code200"><field name="NUM">200</field></block></value>
+            </block>
+          </value>
+          <statement name="DO0">
+            <block type="lexical_variable_set" id="setDados">
+              <field name="VAR">global dadosRecebidos</field>
+              <value name="VALUE"><block type="text_trim" id="trimResponse"><value name="TEXT"><block type="lexical_variable_get" id="respContent"><field name="VAR">responseContent</field></block></value></block></value>
+              <next>
+                <block type="component_set_get" id="statusFromResp">
+                  <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="LabelStatus"></mutation>
+                  <field name="COMPONENT_SELECTOR">LabelStatus</field>
+                  <field name="PROP">Text</field>
+                  <value name="VALUE"><block type="lexical_variable_get" id="respTextForLabel"><field name="VAR">global dadosRecebidos</field></block></value>
+                  <next>
+                    <block type="procedures_callnoreturn" id="callAtualizar" inline="false"><mutation xmlns="http://www.w3.org/1999/xhtml" name="AtualizarInterface"></mutation><field name="PROCNAME">AtualizarInterface</field></block>
+                  </next>
+                </block>
+              </next>
+            </block>
+          </statement>
+          <statement name="ELSE">
+            <block type="component_method" id="alertHttp">
+              <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Notifier" method_name="ShowAlert" is_generic="false" instance_name="Notifier1"></mutation>
+              <field name="COMPONENT_SELECTOR">Notifier1</field>
+              <value name="ARG0">
+                <block type="text_join" id="joinError">
+                  <mutation xmlns="http://www.w3.org/1999/xhtml" items="2"></mutation>
+                  <value name="ADD0"><block type="text" id="errorPrefix"><field name="TEXT">Erro HTTP </field></block></value>
+                  <value name="ADD1"><block type="lexical_variable_get" id="codeText"><field name="VAR">responseCode</field></block></value>
+                </block>
+              </value>
+            </block>
+          </statement>
+        </block>
+      </next>
+    </block>
+  </statement>
+</block>
+
+<block type="procedures_defnoreturn" id="procAtualizar" x="-4100" y="-1060">
+  <field name="NAME">AtualizarInterface</field>
+  <statement name="STACK">
+    <block type="local_declaration_statement" id="declLista">
+      <mutation xmlns="http://www.w3.org/1999/xhtml"><localname name="lista"></localname><localname name="contador"></localname></mutation>
+      <field name="VAR0">lista</field>
+      <value name="DECL0">
+        <block type="text_split" id="splitDados">
+          <mutation xmlns="http://www.w3.org/1999/xhtml" mode="SPLIT"></mutation>
+          <field name="OP">SPLIT</field>
+          <value name="TEXT"><block type="lexical_variable_get" id="getDados"><field name="VAR">global dadosRecebidos</field></block></value>
+          <value name="AT"><block type="text" id="sep"><field name="TEXT">;</field></block></value>
+        </block>
+      </value>
+      <field name="VAR1">contador</field>
+      <value name="DECL1"><block type="text" id="contadorInit"><field name="TEXT"></field></block></value>
+      <statement name="STACK">
+        <block type="controls_if" id="ifTemDados">
+          <value name="IF0">
+            <block type="math_compare" id="lenListaCmp">
+              <field name="OP">GT</field>
+              <value name="A"><block type="lists_length" id="lenLista"><value name="LIST"><block type="lexical_variable_get" id="listaVar"><field name="VAR">lista</field></block></value></block></value>
+              <value name="B"><block type="math_number" id="num3"><field name="NUM">3</field></block></value>
+            </block>
+          </value>
+          <statement name="DO0">
+            <block type="lexical_variable_set" id="setContAtual">
+              <field name="VAR">contador</field>
+              <value name="VALUE"><block type="lists_select_item" id="selConta"><value name="LIST"><block type="lexical_variable_get" id="listaForCounter"><field name="VAR">lista</field></block></value><value name="NUM"><block type="math_number" id="four"><field name="NUM">4</field></block></value></block></value>
+              <next>
+                <block type="controls_if" id="ifNovo">
+                  <value name="IF0">
+                    <block type="logic_compare" id="cmpCounter">
+                      <field name="OP">NEQ</field>
+                      <value name="A"><block type="lexical_variable_get" id="currCounter"><field name="VAR">contador</field></block></value>
+                      <value name="B"><block type="lexical_variable_get" id="prevCounter"><field name="VAR">global ultimoContador</field></block></value>
+                    </block>
+                  </value>
+                  <statement name="DO0">
+                    <block type="lexical_variable_set" id="updateCounter">
+                      <field name="VAR">global ultimoContador</field>
+                      <value name="VALUE"><block type="lexical_variable_get" id="newCounter"><field name="VAR">contador</field></block></value>
+                      <next>
+                        <block type="component_set_get" id="setNome">
+                          <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="LabelNome"></mutation>
+                          <field name="COMPONENT_SELECTOR">LabelNome</field>
+                          <field name="PROP">Text</field>
+                          <value name="VALUE"><block type="lists_select_item" id="selNome"><value name="LIST"><block type="lexical_variable_get" id="listaNome"><field name="VAR">lista</field></block></value><value name="NUM"><block type="math_number" id="one"><field name="NUM">1</field></block></value></block></value>
+                          <next>
+                            <block type="component_set_get" id="setRelacao">
+                              <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="LabelRelacao"></mutation>
+                              <field name="COMPONENT_SELECTOR">LabelRelacao</field>
+                              <field name="PROP">Text</field>
+                              <value name="VALUE"><block type="lists_select_item" id="selRelacao"><value name="LIST"><block type="lexical_variable_get" id="listaRelacao"><field name="VAR">lista</field></block></value><value name="NUM"><block type="math_number" id="two"><field name="NUM">2</field></block></value></block></value>
+                              <next>
+                                <block type="component_set_get" id="setImagem">
+                                  <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Image" set_or_get="set" property_name="Picture" is_generic="false" instance_name="ImageFoto"></mutation>
+                                  <field name="COMPONENT_SELECTOR">ImageFoto</field>
+                                  <field name="PROP">Picture</field>
+                                  <value name="VALUE"><block type="lists_select_item" id="selImagem"><value name="LIST"><block type="lexical_variable_get" id="listaImagem"><field name="VAR">lista</field></block></value><value name="NUM"><block type="math_number" id="three"><field name="NUM">3</field></block></value></block></value>
+                                  <next>
+                                    <block type="component_method" id="speakInfo">
+                                      <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="TextToSpeech" method_name="Speak" is_generic="false" instance_name="TextToSpeech1"></mutation>
+                                      <field name="COMPONENT_SELECTOR">TextToSpeech1</field>
+                                      <value name="ARG0">
+                                        <block type="text_join" id="speechJoin">
+                                          <mutation xmlns="http://www.w3.org/1999/xhtml" items="3"></mutation>
+                                          <value name="ADD0"><block type="component_set_get" id="getNomeSpeak"><mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="get" property_name="Text" is_generic="false" instance_name="LabelNome"></mutation><field name="COMPONENT_SELECTOR">LabelNome</field><field name="PROP">Text</field></block></value>
+                                          <value name="ADD1"><block type="text" id="speakSep"><field name="TEXT"> - </field></block></value>
+                                          <value name="ADD2"><block type="component_set_get" id="getRelacaoSpeak"><mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="get" property_name="Text" is_generic="false" instance_name="LabelRelacao"></mutation><field name="COMPONENT_SELECTOR">LabelRelacao</field><field name="PROP">Text</field></block></value>
+                                        </block>
+                                      </value>
+                                    </block>
+                                  </next>
+                                </block>
+                              </next>
+                            </block>
+                          </next>
+                        </block>
+                      </next>
+                    </block>
+                  </statement>
+                </block>
+              </next>
+            </block>
+          </statement>
+        </block>
+      </statement>
+    </block>
+  </statement>
+</block>
+
+<block type="global_declaration" id="globalDados" x="-4090" y="-250"><field name="NAME">dadosRecebidos</field><value name="VALUE"><block type="text" id="emptyText1"><field name="TEXT"></field></block></value></block>
+<block type="global_declaration" id="globalUltimo" x="-4090" y="-160"><field name="NAME">ultimoContador</field><value name="VALUE"><block type="text" id="emptyText2"><field name="TEXT"></field></block></value></block>
+<block type="global_declaration" id="globalURL" x="-4090" y="-70"><field name="NAME">servidorURL</field><value name="VALUE"><block type="text" id="emptyText3"><field name="TEXT"></field></block></value></block>
+<block type="global_declaration" id="globalReq" x="-4090" y="20"><field name="NAME">emRequisicao</field><value name="VALUE"><block type="logic_boolean" id="boolFalse3"><field name="BOOL">FALSE</field></block></value></block>
+
+<yacodeblocks xmlns="http://www.w3.org/1999/xhtml" ya-version="233" language-version="37"></yacodeblocks>
+</xml>

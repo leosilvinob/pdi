@@ -25,6 +25,7 @@
 #include <mbedtls/base64.h>
 #include <map>
 #include <string>
+#include <cstring>
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_ARDUHAL_ESP_LOG)
 #include "esp32-hal-log.h"
@@ -81,6 +82,13 @@ static bool sd_ready = false;
 static std::map<std::string, std::string> vinculoMap;
 static std::map<int, std::string> idNameMap;
 static const char *FACE_DB_PATH = "/faces.db";
+static int last_face_id = -1;
+static uint32_t last_face_counter = 0;
+static uint64_t last_face_time_us = 0;
+static std::string last_face_name;
+static std::string last_face_vinc;
+static std::string last_face_status = "Aguardando reconhecimento...";
+static bool last_face_dirty = false;
 
 typedef struct {
     int id;
@@ -178,6 +186,47 @@ const char* faces_get_vinc(const char *name) {
     if (it == vinculoMap.end()) return "";
     return it->second.c_str();
 }
+
+void faces_set_status(const char *status) {
+    last_face_status = status ? status : "";
+}
+
+void faces_publish_result(int id, const char *name_hint, const char *vinc_hint) {
+    last_face_time_us = esp_timer_get_time();
+    last_face_counter++;
+    last_face_id = id;
+
+    const char *resolved_name = name_hint;
+    if ((!resolved_name || !resolved_name[0]) && id >= 0) {
+        resolved_name = faces_get_name(id);
+    }
+    const char *resolved_vinc = vinc_hint;
+    if ((!resolved_vinc || !resolved_vinc[0]) && resolved_name) {
+        resolved_vinc = faces_get_vinc(resolved_name);
+    }
+
+    last_face_name = resolved_name ? resolved_name : "";
+    last_face_vinc = resolved_vinc ? resolved_vinc : "";
+    if (last_face_name.empty()) {
+        last_face_name = "Desconhecido";
+    }
+    if (last_face_vinc.empty()) {
+        last_face_vinc = "Sem vínculo";
+    }
+    last_face_status = "Reconhecido: " + last_face_name + " - " + last_face_vinc;
+    last_face_dirty = true;
+}
+
+static std::string build_recognition_payload() {
+    std::string payload = last_face_name;
+    payload.append(";");
+    payload.append(last_face_vinc);
+    payload.append(";");
+    payload.append(""); // foto ainda não enviada
+    payload.append(";");
+    payload.append(std::to_string(last_face_counter));
+    return payload;
+}
 #else
 void faces_set_sd_ready(bool) {}
 void faces_load_metadata() {}
@@ -188,6 +237,8 @@ const char* faces_get_name(int) {
 const char* faces_get_vinc(const char *) {
     return "";
 }
+void faces_set_status(const char *) {}
+void faces_publish_result(int, const char *, const char *) {}
 #endif // CONFIG_ESP_FACE_RECOGNITION_ENABLED
 
 // Enable LED FLASH setting
@@ -475,6 +526,53 @@ static bool decode_base64_jpeg(const char *b64, std::vector<uint8_t> &out)
     }
     out.resize(decoded_len);
     return true;
+}
+#endif
+
+#if CONFIG_ESP_FACE_DETECT_ENABLED
+static esp_err_t recognition_status_handler(httpd_req_t *req)
+{
+#if CONFIG_ESP_FACE_RECOGNITION_ENABLED
+    bool plain = false;
+    size_t qlen = httpd_req_get_url_query_len(req);
+    if (qlen > 0) {
+        std::vector<char> query(qlen + 1);
+        if (httpd_req_get_url_query_str(req, query.data(), query.size()) == ESP_OK) {
+            char fmt[8];
+            if (httpd_query_key_value(query.data(), "format", fmt, sizeof(fmt)) == ESP_OK) {
+                if (!strcmp(fmt, "plain")) {
+                    plain = true;
+                }
+            }
+        }
+    }
+
+    std::string payload = build_recognition_payload();
+    if (plain) {
+        httpd_resp_set_type(req, "text/plain");
+        last_face_dirty = false;
+        return httpd_resp_send(req, payload.c_str(), payload.length());
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    DynamicJsonDocument doc(512);
+    doc["status"] = "ok";
+    doc["message"] = last_face_status.c_str();
+    doc["id"] = last_face_id;
+    doc["nome"] = last_face_name.c_str();
+    doc["vinculo"] = last_face_vinc.c_str();
+    doc["counter"] = last_face_counter;
+    doc["updated_us"] = last_face_time_us;
+    doc["payload"] = payload.c_str();
+    doc["has_new"] = last_face_dirty;
+    std::string json;
+    serializeJson(doc, json);
+    last_face_dirty = false;
+    return httpd_resp_send(req, json.c_str(), json.length());
+#else
+    httpd_resp_set_type(req, "application/json");
+    return httpd_resp_send(req, "{\"status\":\"disabled\"}", HTTPD_RESP_USE_STRLEN);
+#endif
 }
 #endif
 
@@ -1538,6 +1636,19 @@ void startCameraServer()
         .supported_subprotocol = NULL
 #endif
     };
+
+    httpd_uri_t recognition_uri = {
+        .uri = "/recognition",
+        .method = HTTP_GET,
+        .handler = recognition_status_handler,
+        .user_ctx = NULL
+#ifdef CONFIG_HTTPD_WS_SUPPORT
+        ,
+        .is_websocket = true,
+        .handle_ws_control_frames = false,
+        .supported_subprotocol = NULL
+#endif
+    };
 #endif
 
     httpd_uri_t cmd_uri = {
@@ -1673,6 +1784,7 @@ void startCameraServer()
         httpd_register_uri_handler(camera_httpd, &status_uri);
 #if CONFIG_ESP_FACE_DETECT_ENABLED
         httpd_register_uri_handler(camera_httpd, &cadastrar_uri);
+        httpd_register_uri_handler(camera_httpd, &recognition_uri);
 #endif
         httpd_register_uri_handler(camera_httpd, &capture_uri);
         httpd_register_uri_handler(camera_httpd, &bmp_uri);
